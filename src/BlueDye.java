@@ -1,73 +1,109 @@
 import org.powerbot.script.PollingScript;
 import org.powerbot.script.Script;
-import org.powerbot.script.Condition;
 import org.powerbot.script.rt6.*;
-import org.powerbot.script.rt6.Component;
-import org.powerbot.script.rt6.Item;
-import org.powerbot.script.rt6.ClientContext;
-
-import java.util.Arrays;
+import java.util.Random;
 
 @Script.Manifest(
-        name = "Test",
-        description = "testing..",
+        name = "BlueDye",
+        description = "Make blue dyes from Aggie..",
         properties = "client=6"
 )
 
-public class Test extends PollingScript<ClientContext> {
+public class BlueDye extends PollingScript<ClientContext> {
     final int npc_AggieId = 922;
     final int item_BlueDyeId = 1767;
-    String[] aggieActions;
+    final int obj_AggieDoorId = 1239; // Position(3088, 3259) in front of door (outside) -> make sure it is opened (id = 1240)
 
-    //right-click -> make-dyes (2) -> 2 -> space -> loop
-//
-//    final private int EmptyVialID=229;
-//    final private int NotedFullID=228;
-//    final private int FullID=227;
-//    final private int NotedEmptyID=230;
-//    private int i=0;
-//    private int j=0;
-//    private int amtMoney=0;
-//    private GameObject fountain;
-//    final private int[]bankerIds={2718,3418,3293,3416};
-//    final private int[]clerckIds={2240,2241,2593,1419};
-//    final private int[]treeIds={93384,38787,38785,93385,38783};
+    final private int[] bankerIds = {4456, 4457, 4458, 4459};
+
+    public Npc aggie;
+    public boolean isInAggieHouse = false;
+
     @Override
     public void start() {
         System.out.println("Script started..");
     }
 
-    public boolean once = true;
-
     @Override
     public void poll() {
-
-        if (once) {
-//            Item[] items = ctx.backpack.items();
-
-            Npc aggie = ctx.npcs.select().id(npc_AggieId).poll();
-            ctx.movement.step(aggie);
-            ctx.camera.turnTo(aggie);
-            aggieActions = aggie.actions();
-            aggie.interact("Make-dyes");
-            Condition.sleep(2000);
-            Component c = ctx.widgets.widget(1188).component(18);
-            Component c2 = ctx.widgets.widget(1191).component(7);
-            if (c.valid())
-                c.click();
-            Condition.sleep(1000);
-            if (c2.valid())
-                c2.click();
-            once = false;
+        if (!isInventoryFull()) {
+            if (isInAggieHouse)
+                makeDye();
+            else
+                reachAggie();
         }
-//
-//       if(i==0){
-//            i++;
-//            fountain=ctx.objects.select().id(47150).nearest().poll();
-//            walkToBanker();
-//        }
+        else
+            bank();
     }
 
+    public void reachAggie() {
+        ptr("Reach Aggie");
+        aggie = ctx.npcs.select().id(npc_AggieId).poll();
+        ptr("Moving to aggie");
+        moveTo(aggie);
+        isInAggieHouse = true;
+    }
+
+    public void makeDye() {
+            ptr("Make Dye");
+            aggie.interact("Make-dyes");
+            clickComponent(ctx.widgets.widget(1188).component(18));
+            clickComponent(ctx.widgets.widget(1191).component(7));
+    }
+
+    public void moveTo(Npc npc) {
+        while (!ctx.players.local().inMotion())
+            ctx.movement.step(npc);
+        while (ctx.players.local().inMotion())
+            sleep(100);
+        ctx.camera.turnTo(npc);
+    }
+
+    public void clickComponent(Component c) {
+        while (!c.valid())
+            sleep(100);
+        c.click();
+    }
+
+    public boolean isInventoryFull() {
+        return ctx.backpack.select().count() == 28;
+    }
+    
+    public void bank() {
+        isInAggieHouse = false;
+
+        Npc banker = ctx.npcs.select().id(bankerIds).nearest().poll();
+        ptr("Move to bank");
+        moveTo(banker);
+        ptr("Talk to banker");
+        banker.interact("Bank");
+        ptr("wait opening bank");
+        while (!ctx.bank.opened())
+            sleep(250);
+        ptr("Bank depositing");
+        ctx.bank.deposit(item_BlueDyeId, Bank.Amount.ALL);
+        ptr("Close bank");
+        ctx.bank.close();
+    }
+
+    public void ptr(String msg) {
+        System.out.println(msg);
+    }
+
+    public void sleep(int ms) {
+        try {
+            Thread.sleep(randomInt(ms, (int)(ms * 1.5)));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static int randomInt(int min, int max) {
+        Random rand = new Random();
+        int randomNum = rand.nextInt((max - min) + 1) + min;
+        return randomNum;
+    }
+    
 //    public void walkToBanker(){
 //        System.out.println("Walking to banker");
 //        Npc npc = ctx.npcs.select().id(bankerIds).nearest().poll();
