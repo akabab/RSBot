@@ -45,10 +45,12 @@ public class BlueDye extends PollingScript<ClientContext> {
     }
 
     public void makeDye() {
-            ptr("Make Dye");
-            aggie.interact("Make-dyes");
-            clickComponent(ctx.widgets.widget(1188).component(18));
-            clickComponent(ctx.widgets.widget(1191).component(7));
+        ptr("Make Dye");
+//        aggie = ctx.npcs.select().id(npc_AggieId).poll();
+        ctx.camera.turnTo(aggie);
+        aggie.interact("Make-dyes");
+        clickComponent(ctx.widgets.widget(1188).component(18));
+        clickComponent(ctx.widgets.widget(1191).component(7));
     }
 
     public void moveTo(Npc npc) {
@@ -60,8 +62,16 @@ public class BlueDye extends PollingScript<ClientContext> {
     }
 
     public void clickComponent(Component c) {
-        while (!c.valid())
+        //need timeout
+        int attempt = 0;
+        while (!c.valid()) {
             sleep(100);
+            if (attempt >= 10)
+                return;
+            attempt++;
+            ptr("waiting for component");
+        }
+        ptr("clicking on component: " + c.text());
         c.click();
     }
 
